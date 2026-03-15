@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Not Duvarı - Hata Ayıklama Modu</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        body { background: #eee; padding: 20px; display: flex; flex-wrap: wrap; gap: 15px; margin: 0; }
+        .not-karesi {
+            width: 150px; height: 150px; background: #fff9c4;
+            border: 2px solid #333; box-shadow: 5px 5px 0px #aaa;
+            padding: 10px; position: relative; transform: rotate(-1deg);
+        }
+        textarea { width: 100%; height: 100%; border: none; background: transparent; resize: none; outline: none; }
+        #ekle-btn {
+            position: fixed; bottom: 20px; right: 20px;
+            width: 60px; height: 60px; background: #ff4081;
+            color: white; border-radius: 50%; font-size: 30px; border: none; z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<button id="ekle-btn">+</button>
+
+<script>
+    // Firebase Bilgilerin (Resimdekiyle aynı)
+    const config = {
+        apiKey: "AIzaSyDlN0NHovPRgeXerTV2oLb2gXXwDX_fQ8U",
+        authDomain: "site-bab97.firebaseapp.com",
+        databaseURL: "https://site-bab97-default-rtdb.firebaseio.com",
+        projectId: "site-bab97",
+        storageBucket: "site-bab97.firebasestorage.app",
+        messagingSenderId: "905461346636",
+        appId: "1:905461346636:web:987e63f4c31e3cd04a4069"
+    };
+
+    // 1. ADIM: Firebase yüklendi mi kontrol et
+    if (typeof firebase === 'undefined') {
+        alert("HATA: Firebase kütüphanesi yüklenemedi! İnternet bağlantını kontrol et.");
+    } else {
+        firebase.initializeApp(config);
+        const db = firebase.database().ref("notlar");
+
+        // Verileri çek
+        db.on("value", (snap) => {
+            document.querySelectorAll('.not-karesi').forEach(n => n.remove());
+            const data = snap.val();
+            for (let id in data) {
+                notuCiz(id, data[id].metin);
+            }
+        });
+
+        // Butona basınca ekle
+        document.getElementById("ekle-btn").onclick = function() {
+            console.log("Butona basıldı, ekleniyor...");
+            db.push({ metin: "" }).catch(err => {
+                alert("Firebase Yazma Hatası: " + err.message);
+            });
+        };
+    }
+
+    function notuCiz(id, icerik) {
+        const div = document.createElement("div");
+        div.className = 'not-karesi';
+        div.innerHTML = `<textarea>${icerik || ""}</textarea>`;
+        const txt = div.querySelector("textarea");
+        txt.oninput = () => firebase.database().ref("notlar/" + id).update({ metin: txt.value });
+        document.body.appendChild(div);
+    }
+</script>
+</body>
+</html>
