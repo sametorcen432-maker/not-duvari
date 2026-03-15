@@ -3,22 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Not Duvarı - Hata Ayıklama Modu</title>
+    <title>Gelişmiş Not Duvarı</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
     <style>
-        body { background: #eee; padding: 20px; display: flex; flex-wrap: wrap; gap: 15px; margin: 0; }
-        .not-karesi {
-            width: 150px; height: 150px; background: #fff9c4;
-            border: 2px solid #333; box-shadow: 5px 5px 0px #aaa;
-            padding: 10px; position: relative; transform: rotate(-1deg);
+        body { 
+            background: #a2d2ff; /* İstediğin mavi arka plan */
+            padding: 20px; 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 25px; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            justify-content: center;
         }
-        textarea { width: 100%; height: 100%; border: none; background: transparent; resize: none; outline: none; }
+        
+        .not-dikdortgen {
+            width: 320px; /* Dikdörtgen olması için genişliği artırdık */
+            min-height: 180px; 
+            background: #ffffff;
+            border: 2px solid #333; 
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.1);
+            padding: 15px; 
+            display: flex; 
+            flex-direction: column;
+            position: relative;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+
+        /* Hafif estetik dönüşler */
+        .not-dikdortgen:nth-child(odd) { transform: rotate(-1deg); }
+        .not-dikdortgen:nth-child(even) { transform: rotate(1.5deg); }
+
+        textarea {
+            width: 100%; 
+            height: 100px; 
+            border: none; 
+            resize: none;
+            outline: none; 
+            font-size: 16px; 
+            background: transparent;
+            background-image: linear-gradient(#f1f1f1 1px, transparent 1px);
+            background-size: 100% 25px;
+            line-height: 25px;
+        }
+
+        .foto-onizleme {
+            max-width: 100%;
+            max-height: 120px;
+            border-radius: 5px;
+            margin-top: 10px;
+            object-fit: cover;
+            display: none; /* Boşken görünmesin */
+        }
+
+        .sil-btn {
+            position: absolute; top: -10px; right: -10px;
+            background: #ff5252; color: white; border: 2px solid #333;
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+            font-weight: bold; display: none; /* Sadece sahibi görecek */
+            align-items: center; justify-content: center;
+        }
+
         #ekle-btn {
-            position: fixed; bottom: 20px; right: 20px;
-            width: 60px; height: 60px; background: #ff4081;
-            color: white; border-radius: 50%; font-size: 30px; border: none; z-index: 100;
+            position: fixed; bottom: 30px; right: 30px;
+            width: 70px; height: 70px; background: #4dabf7;
+            color: white; border: 3px solid #333; 
+            border-radius: 50%; font-size: 40px; 
+            cursor: pointer; box-shadow: 0 5px 0 #1971c2;
+            z-index: 100;
         }
     </style>
 </head>
@@ -27,7 +81,7 @@
 <button id="ekle-btn">+</button>
 
 <script>
-    // Firebase Bilgilerin (Resimdekiyle aynı)
+    // Firebase Ayarları
     const config = {
         apiKey: "AIzaSyDlN0NHovPRgeXerTV2oLb2gXXwDX_fQ8U",
         authDomain: "site-bab97.firebaseapp.com",
@@ -38,37 +92,55 @@
         appId: "1:905461346636:web:987e63f4c31e3cd04a4069"
     };
 
-    // 1. ADIM: Firebase yüklendi mi kontrol et
-    if (typeof firebase === 'undefined') {
-        alert("HATA: Firebase kütüphanesi yüklenemedi! İnternet bağlantını kontrol et.");
-    } else {
-        firebase.initializeApp(config);
-        const db = firebase.database().ref("notlar");
+    firebase.initializeApp(config);
+    const db = firebase.database().ref("notlar");
 
-        // Verileri çek
-        db.on("value", (snap) => {
-            document.querySelectorAll('.not-karesi').forEach(n => n.remove());
-            const data = snap.val();
-            for (let id in data) {
-                notuCiz(id, data[id].metin);
-            }
-        });
-
-        // Butona basınca ekle
-        document.getElementById("ekle-btn").onclick = function() {
-            console.log("Butona basıldı, ekleniyor...");
-            db.push({ metin: "" }).catch(err => {
-                alert("Firebase Yazma Hatası: " + err.message);
-            });
-        };
+    // Cihaz kimliği (Sadece kendi notunu silmek için)
+    let myID = localStorage.getItem("user_token");
+    if(!myID) {
+        myID = "user_" + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("user_token", myID);
     }
 
-    function notuCiz(id, icerik) {
+    db.on("value", (snap) => {
+        document.querySelectorAll('.not-dikdortgen').forEach(n => n.remove());
+        const data = snap.val();
+        for (let id in data) {
+            notuCiz(id, data[id]);
+        }
+    });
+
+    document.getElementById("ekle-btn").onclick = () => {
+        db.push({
+            metin: "",
+            owner: myID, // Notu kimin yazdığını kaydet
+            fotoUrl: ""
+        });
+    };
+
+    function notuCiz(id, data) {
         const div = document.createElement("div");
-        div.className = 'not-karesi';
-        div.innerHTML = `<textarea>${icerik || ""}</textarea>`;
+        div.className = 'not-dikdortgen';
+        div.innerHTML = `
+            <button class="sil-btn">X</button>
+            <textarea placeholder="Yazmaya başla...">${data.metin || ""}</textarea>
+            <img class="foto-onizleme" src="${data.fotoUrl || ''}" style="${data.fotoUrl ? 'display:block' : 'display:none'}">
+            <input type="text" placeholder="Foto linki yapıştır..." class="img-input" value="${data.fotoUrl || ''}" style="font-size:10px; margin-top:5px; border:1px solid #ddd; padding:2px;">
+        `;
+        
+        // Sadece sahibi silebilir
+        if(data.owner === myID) {
+            const btn = div.querySelector(".sil-btn");
+            btn.style.display = "flex";
+            btn.onclick = () => { if(confirm("Silinsin mi?")) db.child(id).remove(); };
+        }
+
         const txt = div.querySelector("textarea");
-        txt.oninput = () => firebase.database().ref("notlar/" + id).update({ metin: txt.value });
+        const imgInput = div.querySelector(".img-input");
+
+        txt.oninput = () => db.child(id).update({ metin: txt.value });
+        imgInput.onchange = () => db.child(id).update({ fotoUrl: imgInput.value });
+
         document.body.appendChild(div);
     }
 </script>
